@@ -75,6 +75,7 @@ ndk::ScopedAStatus Vibrator::on(int32_t timeoutMs,
     return ndk::ScopedAStatus::ok();
 }
 
+#ifdef VIBRATOR_SUPPORTS_EFFECTS
 ndk::ScopedAStatus Vibrator::perform(Effect effect, EffectStrength strength,
                                      const std::shared_ptr<IVibratorCallback>& callback,
                                      int32_t* _aidl_return) {
@@ -87,9 +88,7 @@ ndk::ScopedAStatus Vibrator::perform(Effect effect, EffectStrength strength,
     if (vibStrengths.find(strength) == vibStrengths.end())
         return ndk::ScopedAStatus(AStatus_fromExceptionCode(EX_UNSUPPORTED_OPERATION));
 
-#ifdef VIBRATOR_SUPPORTS_EFFECTS
     setAmplitude(vibStrengths[strength]);
-#endif
 
     timeoutMs = vibEffects[effect];
 
@@ -108,24 +107,31 @@ ndk::ScopedAStatus Vibrator::perform(Effect effect, EffectStrength strength,
 
     *_aidl_return = timeoutMs;
     return ndk::ScopedAStatus::ok();
+#else
+ndk::ScopedAStatus Vibrator::perform(Effect /* effect */, EffectStrength /* strength */,
+                                     const std::shared_ptr<IVibratorCallback>& /* callback */,
+                                     int32_t* /* _aidl_return */) {
+    return ndk::ScopedAStatus(AStatus_fromExceptionCode(EX_UNSUPPORTED_OPERATION));
+#endif
 }
 
+#ifdef VIBRATOR_SUPPORTS_EFFECTS
 ndk::ScopedAStatus Vibrator::getSupportedEffects(std::vector<Effect>* _aidl_return) {
     for (auto const& pair : vibEffects)
         _aidl_return->push_back(pair.first);
-
+#else
+ndk::ScopedAStatus Vibrator::getSupportedEffects(std::vector<Effect>* /* _aidl_return */) {
+#endif
     return ndk::ScopedAStatus::ok();
 }
 
-ndk::ScopedAStatus Vibrator::setAmplitude(float amplitude) {
 #ifdef VIBRATOR_SUPPORTS_EFFECTS
+ndk::ScopedAStatus Vibrator::setAmplitude(float amplitude) {
     int32_t intensity;
-#endif
 
     if (amplitude <= 0.0f || amplitude > 1.0f)
         return ndk::ScopedAStatus(AStatus_fromExceptionCode(EX_ILLEGAL_ARGUMENT));
 
-#ifdef VIBRATOR_SUPPORTS_EFFECTS
     LOG(VERBOSE) << "Setting amplitude: " << amplitude;
 
     intensity = amplitude * mVibratorStrengthMax;
@@ -134,9 +140,12 @@ ndk::ScopedAStatus Vibrator::setAmplitude(float amplitude) {
 
     if (mVibratorStrengthSupported)
         setNode(kVibratorStrength, intensity);
-#endif
 
     return ndk::ScopedAStatus::ok();
+#else
+ndk::ScopedAStatus Vibrator::setAmplitude(float amplitude __unused) {
+    return ndk::ScopedAStatus(AStatus_fromExceptionCode(EX_UNSUPPORTED_OPERATION));
+#endif
 }
 
 ndk::ScopedAStatus Vibrator::setExternalControl(bool enabled __unused) {
